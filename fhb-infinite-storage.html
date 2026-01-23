@@ -433,6 +433,15 @@
             }
         }
 
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-12px);
+            }
+        }
+
         /* MODAL */
         .modal {
             position: fixed;
@@ -996,6 +1005,18 @@
         // Global functions
         function closeModal() {
             document.getElementById('nodeModal').classList.remove('active');
+        }
+
+        function initiateStorageExpansion() {
+            storage.initiateStorageExpansion();
+        }
+
+        function runGarbageCollection() {
+            storage.runGarbageCollection();
+        }
+
+        function createBackup() {
+            storage.createBackup();
         }
 
         // Event Listeners

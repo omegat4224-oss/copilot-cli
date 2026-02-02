@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FHB Infinite Storage Environment</title>
+    <style>
+        :root {
+            --quantum-blue: rgba(0, 255, 255, 0.8);
+            --quantum-pink: rgba(255, 0, 255, 0.8);
+            --hologram-glow: rgba(0, 150, 255, 0.6);
+            --storage-green: rgba(0, 255, 150, 0.8);
+            --archive-gold: rgba(255, 215, 0, 0.8);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #000510 0%, #0a0a2a 100%);
+            color: #e0f7ff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 400px;
+            grid-template-rows: 100px 1fr 100px;
+            height: 100vh;
+            gap: 1px;
+            background: rgba(0, 30, 60, 0.2);
+        }
+
+        /* HEADER */
+        .header {
+            grid-column: 1 / -1;
+            background: linear-gradient(90deg, rgba(0, 20, 40, 0.9), rgba(10, 30, 60, 0.9));
+            border-bottom: 2px solid var(--quantum-blue);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(0, 255, 255, 0.1) 50%,
+                transparent 100%);
+            animation: scan 4s linear infinite;
+        }
+
+        .logo {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--quantum-blue), var(--quantum-pink));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+        }
+
+        .storage-stats {
+            display: flex;
+            gap: 30px;
+            font-size: 1.1rem;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: var(--quantum-blue);
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #88ffff;
+            opacity: 0.8;
+        }
+
+        /* SIDEBAR - INFINITE STORAGE CONTROL */
+        .sidebar {
+            background: rgba(0, 15, 30, 0.85);
+            border-right: 1px solid rgba(0, 100, 200, 0.3);
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .section-title {
+            color: var(--quantum-blue);
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        .storage-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            background: rgba(0, 30, 60, 0.5);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 150, 255, 0.2);
+        }
+
+        .slider-container {
+            margin: 15px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            color: #aaddff;
+        }
+
+        .slider {
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            background: linear-gradient(90deg, #003366, #00aaff);
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--quantum-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--quantum-blue);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(45deg, #0066cc, #00ccff);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 200, 255, 0.4);
+        }
+
+        .fractal-compression {
+            height: 120px;
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        /* MAIN VISUALIZATION AREA */
+        .main-viz {
+            position: relative;
+            background: rgba(0, 10, 20, 0.7);
+            overflow: hidden;
+        }
+
+        .infinite-grid {
+            position: absolute;
+            width: 400%;
+            height: 400%;
+            background-image:
+                linear-gradient(rgba(0, 150, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 150, 255, 0.05) 1px, transparent 1px);
+            background-size: 100px 100px;
+            animation: scrollGrid 40s linear infinite;
+        }
+
+        .holographic-storage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 500px;
+            perspective: 1000px;
+        }
+
+        .storage-cube {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            animation: rotateCube 20s infinite linear;
+        }
+
+        .cube-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 30, 60, 0.3);
+            border: 2px solid rgba(0, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: var(--quantum-blue);
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .face-front { transform: translateZ(250px); }
+        .face-back { transform: rotateY(180deg) translateZ(250px); }
+        .face-right { transform: rotateY(90deg) translateZ(250px); }
+        .face-left { transform: rotateY(-90deg) translateZ(250px); }
+        .face-top { transform: rotateX(90deg) translateZ(250px); }
+        .face-bottom { transform: rotateX(-90deg) translateZ(250px); }
+
+        .data-stream {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .stream-particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--storage-green);
+            animation: streamFlow 4s linear infinite;
+        }
+
+        /* STORAGE NODES - PERIODIC ELEMENTS */
+        .storage-nodes {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .node {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 10;
+            border: 2px solid;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), transparent);
+        }
+
+        .node:hover {
+            transform: scale(1.5);
+            z-index: 100;
+        }
+
+        .node-noble-gas {
+            border-color: var(--archive-gold);
+            background-color: rgba(255, 215, 0, 0.2);
+            color: var(--archive-gold);
+        }
+
+        .node-lanthanide {
+            border-color: #00ffaa;
+            background-color: rgba(0, 255, 170, 0.2);
+            color: #00ffaa;
+        }
+
+        .node-alkaline {
+            border-color: #ffaa00;
+            background-color: rgba(255, 170, 0, 0.2);
+            color: #ffaa00;
+        }
+
+        .node-transition {
+            border-color: #00aaff;
+            background-color: rgba(0, 170, 255, 0.2);
+            color: #00aaff;
+        }
+
+        .node-storage-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid;
+            animation: rotateRing linear infinite;
+        }
+
+        /* INFO PANEL */
+        .info-panel {
+            background: rgba(0, 20, 40, 0.9);
+            border-left: 1px solid rgba(0, 100, 200, 0.3);
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .data-structure {
+            background: rgba(0, 30, 60, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid rgba(0, 200, 255, 0.2);
+        }
+
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(0, 40, 80, 0.3);
+            border-radius: 5px;
+            border-left: 3px solid var(--storage-green);
+        }
+
+        .fractal-progress {
+            height: 20px;
+            background: rgba(0, 40, 80, 0.5);
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--storage-green), var(--quantum-blue));
+            border-radius: 10px;
+            width: 75%;
+            animation: pulseProgress 2s ease-in-out infinite;
+        }
+
+        /* FOOTER */
+        .footer {
+            grid-column: 1 / -1;
+            background: rgba(0, 15, 30, 0.9);
+            border-top: 2px solid rgba(0, 100, 200, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+        }
+
+        .quantum-state {
+            display: flex;
+            gap: 20px;
+        }
+
+        .quantum-bit {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--quantum-blue);
+            animation: quantumPulse 1s ease-in-out infinite;
+        }
+
+        /* ANIMATIONS */
+        @keyframes scrollGrid {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-50%, -50%); }
+        }
+
+        @keyframes rotateCube {
+            0% { transform: rotateX(0) rotateY(0); }
+            100% { transform: rotateX(360deg) rotateY(360deg); }
+        }
+
+        @keyframes streamFlow {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        @keyframes scan {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        @keyframes rotateRing {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulseProgress {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+
+        @keyframes quantumPulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 1;
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-12px);
+            }
+        }
+
+        /* MODAL */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #001020, #002040);
+            padding: 40px;
+            border-radius: 20px;
+            border: 2px solid var(--quantum-blue);
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--quantum-blue);
+            font-size: 24px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header class="header">
+            <div class="logo">FHB ∞ STORAGE</div>
+            <div class="storage-stats">
+                <div class="stat">
+                    <div class="stat-value" id="storageUsed">3.7 ZB</div>
+                    <div class="stat-label">Stored Data</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="storageTotal">∞</div>
+                    <div class="stat-label">Total Capacity</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="fractalRatio">1:∞</div>
+                    <div class="stat-label">Compression Ratio</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="nodeCount">118/118</div>
+                    <div class="stat-label">Active Nodes</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <h3 class="section-title">STORAGE CONTROLS</h3>
+
+            <div class="control-group">
+                <div class="slider-label">
+                    <span>Fractal Compression</span>
+                    <span id="compressionValue">9.2x</span>
+                </div>
+                <input type="range" min="1" max="100" value="92" class="slider" id="compressionSlider">
+            </div>
+
+            <div class="control-group">
+                <div class="slider-label">
+                    <span>Holographic Layers</span>
+                    <span id="layerValue">7D</span>
+                </div>
+                <input type="range" min="1" max="11" value="7" class="slider" id="layerSlider">
+            </div>
+
+            <div class="control-group">
+                <div class="slider-label">
+                    <span>Quantum Entanglement</span>
+                    <span id="quantumValue">94.7%</span>
+                </div>
+                <input type="range" min="1" max="100" value="95" class="slider" id="quantumSlider">
+            </div>
+
+            <button class="btn" onclick="initiateStorageExpansion()">Expand Storage</button>
+            <button class="btn" onclick="runGarbageCollection()">Fractal Defragmentation</button>
+            <button class="btn" onclick="createBackup()">Create Holographic Backup</button>
+
+            <div class="fractal-compression" id="fractalViz">
+                <!-- Fractal patterns will be drawn here -->
+            </div>
+
+            <h3 class="section-title" style="margin-top: 30px;">STORAGE NODES</h3>
+            <div id="nodeList">
+                <!-- Node status will be populated here -->
+            </div>
+        </div>
+
+        <!-- MAIN VISUALIZATION -->
+        <div class="main-viz">
+            <div class="infinite-grid"></div>
+
+            <div class="holographic-storage">
+                <div class="storage-cube">
+                    <div class="cube-face face-front">∞ FRONT</div>
+                    <div class="cube-face face-back">∞ BACK</div>
+                    <div class="cube-face face-right">∞ RIGHT</div>
+                    <div class="cube-face face-left">∞ LEFT</div>
+                    <div class="cube-face face-top">∞ TOP</div>
+                    <div class="cube-face face-bottom">∞ BOTTOM</div>
+                </div>
+            </div>
+
+            <div class="data-stream" id="dataStream">
+                <!-- Data particles will be generated here -->
+            </div>
+
+            <div class="storage-nodes" id="storageNodes">
+                <!-- Storage nodes will be positioned here -->
+            </div>
+        </div>
+
+        <!-- INFO PANEL -->
+        <div class="info-panel">
+            <h3 class="section-title">STORAGE ANALYTICS</h3>
+
+            <div class="data-structure">
+                <h4>Fractal Storage Hierarchy</h4>
+                <div class="data-item">
+                    <span>Quantum Layer</span>
+                    <span>Active</span>
+                </div>
+                <div class="data-item">
+                    <span>Holographic Layer</span>
+                    <span>7D Active</span>
+                </div>
+                <div class="data-item">
+                    <span>Chaotic Layer</span>
+                    <span>λ=3.94</span>
+                </div>
+                <div class="data-item">
+                    <span>Temporal Layer</span>
+                    <span>∞ Timeline</span>
+                </div>
+            </div>
+
+            <div class="fractal-progress">
+                <div class="progress-fill" id="storageProgress"></div>
+            </div>
+
+            <h3 class="section-title">RECENT ACCESS</h3>
+            <div id="accessLog">
+                <!-- Access logs will be populated here -->
+            </div>
+
+            <h3 class="section-title">BACKUP STATUS</h3>
+            <div id="backupStatus">
+                <!-- Backup status will be shown here -->
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="footer">
+            <div class="quantum-state" id="quantumState">
+                <!-- Quantum bits will be generated here -->
+            </div>
+            <div style="color: #88aaaa;">
+                © 2026 Andrew Lee Cruz | ID: 574665105 | FHB Infinite Storage
+            </div>
+            <div id="systemTime" style="color: var(--quantum-blue);">
+                2026-07-15 14:32:47 UTC
+            </div>
+        </footer>
+    </div>
+
+    <!-- NODE DETAIL MODAL -->
+    <div class="modal" id="nodeModal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">×</button>
+            <h3 id="modalTitle">Node Details</h3>
+            <div id="modalContent">
+                <!-- Node details will be shown here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize infinite storage environment
+        class InfiniteStorage {
+            constructor() {
+                this.storageUsed = 3.7; // Zettabytes
+                this.fractalRatio = 9.2;
+                this.holographicLayers = 7;
+                this.quantumSync = 94.7;
+                this.activeNodes = 118;
+                this.totalNodes = 118;
+                this.dataStreams = [];
+                this.nodes = [];
+                this.accessLog = [];
+
+                this.init();
+            }
+
+            init() {
+                this.updateUI();
+                this.createStorageNodes();
+                this.startDataStream();
+                this.updateSystemTime();
+                this.createQuantumState();
+                this.drawFractalPattern();
+                this.populateNodeList();
+                this.populateAccessLog();
+                this.populateBackupStatus();
+
+                // Update stats every second
+                setInterval(() => this.updateStats(), 1000);
+            }
+
+            updateUI() {
+                document.getElementById('storageUsed').textContent = `${this.storageUsed.toFixed(1)} ZB`;
+                document.getElementById('fractalRatio').textContent = `1:${this.fractalRatio.toFixed(1)}`;
+                document.getElementById('layerValue').textContent = `${this.holographicLayers}D`;
+                document.getElementById('quantumValue').textContent = `${this.quantumSync.toFixed(1)}%`;
+                document.getElementById('nodeCount').textContent = `${this.activeNodes}/${this.totalNodes}`;
+
+                // Update progress bar
+                const progress = (this.storageUsed % 10) * 10;
+                document.getElementById('storageProgress').style.width = `${progress}%`;
+            }
+
+            createStorageNodes() {
+                const container = document.getElementById('storageNodes');
+                container.innerHTML = '';
+
+                // Define noble gas nodes (primary storage)
+                const nobleGases = ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn', 'Og'];
+                nobleGases.forEach((gas, i) => {
+                    const angle = (i / nobleGases.length) * Math.PI * 2;
+                    const radius = 200;
+                    const x = Math.cos(angle) * radius + 400;
+                    const y = Math.sin(angle) * radius + 300;
+
+                    this.createNode(gas, 'noble-gas', x, y, 'Archive Node');
+
+                    // Create storage ring
+                    const ring = document.createElement('div');
+                    ring.className = 'node-storage-ring';
+                    ring.style.width = `${radius * 2}px`;
+                    ring.style.height = `${radius * 2}px`;
+                    ring.style.left = `${400 - radius}px`;
+                    ring.style.top = `${300 - radius}px`;
+                    ring.style.borderColor = 'rgba(255, 215, 0, 0.3)';
+                    ring.style.animationDuration = `${30 + i * 5}s`;
+                    container.appendChild(ring);
+                });
+
+                // Define lanthanide nodes (consensus storage)
+                const lanthanides = ['La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu'];
+                lanthanides.forEach((element, i) => {
+                    const angle = (i / lanthanides.length) * Math.PI * 2;
+                    const radius = 350;
+                    const x = Math.cos(angle + 0.5) * radius + 400;
+                    const y = Math.sin(angle + 0.5) * radius + 300;
+
+                    this.createNode(element, 'lanthanide', x, y, 'Consensus Storage');
+                });
+
+                // Define other node types
+                const additionalNodes = [
+                    { id: 'H', type: 'transition', x: 200, y: 200, role: 'Quantum Index' },
+                    { id: 'C', type: 'transition', x: 600, y: 200, role: 'Data Structure' },
+                    { id: 'Si', type: 'alkaline', x: 200, y: 400, role: 'Bridge Storage' },
+                    { id: 'Fe', type: 'transition', x: 600, y: 400, role: 'Core Storage' }
+                ];
+
+                additionalNodes.forEach(node => {
+                    this.createNode(node.id, node.type, node.x, node.y, node.role);
+                });
+            }
+
+            createNode(id, type, x, y, role) {
+                const container = document.getElementById('storageNodes');
+                const node = document.createElement('div');
+
+                node.className = `node node-${type}`;
+                node.style.left = `${x}px`;
+                node.style.top = `${y}px`;
+                node.textContent = id;
+                node.dataset.id = id;
+                node.dataset.role = role;
+                node.dataset.type = type;
+
+                node.onclick = () => this.showNodeDetails(id, role, type);
+
+                // Add storage animation
+                node.style.animation = `float ${3 + Math.random() * 3}s ease-in-out infinite`;
+                node.style.animationDelay = `${Math.random() * 2}s`;
+
+                container.appendChild(node);
+                this.nodes.push({ id, type, x, y, role, element: node });
+            }
+
+            startDataStream() {
+                const stream = document.getElementById('dataStream');
+
+                // Create continuous data stream
+                setInterval(() => {
+                    for (let i = 0; i < 5; i++) {
+                        const particle = document.createElement('div');
+                        particle.className = 'stream-particle';
+                        particle.style.left = `${Math.random() * 100}%`;
+                        particle.style.background = Math.random() > 0.5 ? 'var(--storage-green)' : 'var(--quantum-blue)';
+                        particle.style.animationDuration = `${2 + Math.random() * 3}s`;
+                        particle.style.animationDelay = `${Math.random() * 2}s`;
+
+                        stream.appendChild(particle);
+
+                        // Remove particle after animation
+                        setTimeout(() => {
+                            if (particle.parentNode) {
+                                particle.parentNode.removeChild(particle);
+                            }
+                        }, 4000);
+                    }
+                }, 200);
+            }
+
+            showNodeDetails(id, role, type) {
+                const modal = document.getElementById('nodeModal');
+                const title = document.getElementById('modalTitle');
+                const content = document.getElementById('modalContent');
+
+                title.textContent = `${id} Node - ${role}`;
+
+                const nodeData = this.getNodeData(id);
+                content.innerHTML = `
+                    <div style="display: grid; gap: 15px; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(0,40,80,0.3); border-radius: 5px;">
+                            <span>Storage Capacity:</span>
+                            <span style="color: var(--storage-green);">∞ ZB</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(0,40,80,0.3); border-radius: 5px;">
+                            <span>Current Usage:</span>
+                            <span>${(Math.random() * 100).toFixed(1)} ZB</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(0,40,80,0.3); border-radius: 5px;">
+                            <span>Access Speed:</span>
+                            <span>${(Math.random() * 1000).toFixed(0)} QB/s</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(0,40,80,0.3); border-radius: 5px;">
+                            <span>Fractal Depth:</span>
+                            <span>${this.holographicLayers}D</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(0,40,80,0.3); border-radius: 5px;">
+                            <span>Quantum Entanglement:</span>
+                            <span>${this.quantumSync.toFixed(1)}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(0,40,80,0.3); border-radius: 5px;">
+                            <span>Last Backup:</span>
+                            <span>${new Date().toLocaleTimeString()}</span>
+                        </div>
+                    </div>
+                    <button class="btn" style="margin-top: 20px; width: 100%;" onclick="storage.replicateNode('${id}')">
+                        Replicate Node Data
+                    </button>
+                `;
+
+                modal.classList.add('active');
+            }
+
+            getNodeData(id) {
+                // Mock node data
+                return {
+                    capacity: '∞ ZB',
+                    usage: `${(Math.random() * 100).toFixed(1)} ZB`,
+                    speed: `${(Math.random() * 1000).toFixed(0)} QB/s`,
+                    status: 'Active',
+                    lastAccessed: new Date().toLocaleTimeString()
+                };
+            }
+
+            updateStats() {
+                // Simulate storage growth
+                this.storageUsed += Math.random() * 0.01;
+                this.quantumSync = 94 + Math.random() * 2;
+
+                // Occasionally add/remove nodes
+                if (Math.random() > 0.99) {
+                    this.activeNodes = Math.min(this.totalNodes, this.activeNodes + 1);
+                }
+
+                this.updateUI();
+                this.updateSystemTime();
+            }
+
+            updateSystemTime() {
+                const now = new Date();
+                document.getElementById('systemTime').textContent =
+                    now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+            }
+
+            createQuantumState() {
+                const container = document.getElementById('quantumState');
+                container.innerHTML = '';
+
+                for (let i = 0; i < 12; i++) {
+                    const bit = document.createElement('div');
+                    bit.className = 'quantum-bit';
+                    bit.style.animationDelay = `${i * 0.1}s`;
+                    bit.style.background = i % 3 === 0 ? 'var(--quantum-blue)' :
+                                          i % 3 === 1 ? 'var(--quantum-pink)' : 'var(--storage-green)';
+                    container.appendChild(bit);
+                }
+            }
+
+            drawFractalPattern() {
+                const container = document.getElementById('fractalViz');
+                container.innerHTML = '';
+
+                // Create simple fractal pattern
+                const canvas = document.createElement('canvas');
+                canvas.width = 250;
+                canvas.height = 100;
+                const ctx = canvas.getContext('2d');
+
+                // Draw fractal pattern
+                this.drawFractal(ctx, 125, 50, 40, 0);
+                container.appendChild(canvas);
+            }
+
+            drawFractal(ctx, x, y, size, depth) {
+                if (depth > 4 || size < 2) return;
+
+                // Draw circle
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 200, 255, ${0.3 - depth * 0.05})`;
+                ctx.stroke();
+
+                // Recursive calls
+                const newSize = size * 0.6;
+                this.drawFractal(ctx, x - size, y, newSize, depth + 1);
+                this.drawFractal(ctx, x + size, y, newSize, depth + 1);
+                this.drawFractal(ctx, x, y - size, newSize, depth + 1);
+                this.drawFractal(ctx, x, y + size, newSize, depth + 1);
+            }
+
+            populateNodeList() {
+                const container = document.getElementById('nodeList');
+                container.innerHTML = '';
+
+                const nodeTypes = [
+                    { type: 'noble-gas', label: 'Archive Nodes', count: 7 },
+                    { type: 'lanthanide', label: 'Consensus Nodes', count: 7 },
+                    { type: 'transition', label: 'Core Storage', count: 40 },
+                    { type: 'alkaline', label: 'State Managers', count: 6 }
+                ];
+
+                nodeTypes.forEach(nodeType => {
+                    const div = document.createElement('div');
+                    div.className = 'data-item';
+                    div.innerHTML = `
+                        <span>${nodeType.label}</span>
+                        <span style="color: var(--storage-green);">${nodeType.count}/∞</span>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            populateAccessLog() {
+                const container = document.getElementById('accessLog');
+                container.innerHTML = '';
+
+                const logs = [
+                    { time: '14:32:01', action: 'Quantum Read', size: '1.2 PB', node: 'Xe' },
+                    { time: '14:31:47', action: 'Holographic Write', size: '0.8 PB', node: 'Ar' },
+                    { time: '14:31:12', action: 'Fractal Compression', size: '4.7 PB', node: 'La' },
+                    { time: '14:30:55', action: 'Quantum Backup', size: '12.3 PB', node: 'Kr' }
+                ];
+
+                logs.forEach(log => {
+                    const div = document.createElement('div');
+                    div.className = 'data-item';
+                    div.innerHTML = `
+                        <div>
+                            <div style="color: var(--quantum-blue);">${log.time}</div>
+                            <div style="font-size: 0.9rem; color: #88aaaa;">${log.node} Node</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div>${log.action}</div>
+                            <div style="color: var(--storage-green); font-size: 0.9rem;">${log.size}</div>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            populateBackupStatus() {
+                const container = document.getElementById('backupStatus');
+                container.innerHTML = `
+                    <div class="data-item">
+                        <span>Last Full Backup</span>
+                        <span style="color: var(--storage-green);">14:00:00</span>
+                    </div>
+                    <div class="data-item">
+                        <span>Next Scheduled</span>
+                        <span>15:00:00</span>
+                    </div>
+                    <div class="data-item">
+                        <span>Backup Size</span>
+                        <span>∞ ZB</span>
+                    </div>
+                    <div class="data-item">
+                        <span>Integrity Check</span>
+                        <span style="color: #00ff00;">100%</span>
+                    </div>
+                `;
+            }
+
+            // Storage Operations
+            initiateStorageExpansion() {
+                alert('Initiating infinite storage expansion...\nCreating new fractal dimension...');
+                this.holographicLayers = Math.min(11, this.holographicLayers + 1);
+                this.updateUI();
+            }
+
+            runGarbageCollection() {
+                alert('Running fractal defragmentation...\nOptimizing infinite storage space...');
+                this.fractalRatio += Math.random() * 0.5;
+                this.updateUI();
+            }
+
+            createBackup() {
+                alert('Creating holographic backup...\nBackup completed successfully!');
+                this.accessLog.unshift({
+                    time: new Date().toLocaleTimeString(),
+                    action: 'Holographic Backup',
+                    size: '∞ ZB',
+                    node: 'All'
+                });
+                this.populateAccessLog();
+            }
+
+            replicateNode(nodeId) {
+                alert(`Replicating ${nodeId} node data across fractal network...`);
+            }
+        }
+
+        // Global functions
+        function closeModal() {
+            document.getElementById('nodeModal').classList.remove('active');
+        }
+
+        function initiateStorageExpansion() {
+            storage.initiateStorageExpansion();
+        }
+
+        function runGarbageCollection() {
+            storage.runGarbageCollection();
+        }
+
+        function createBackup() {
+            storage.createBackup();
+        }
+
+        // Event Listeners
+        document.getElementById('compressionSlider').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('compressionValue').textContent = `${(value / 10).toFixed(1)}x`;
+            storage.fractalRatio = value / 10;
+            storage.updateUI();
+        });
+
+        document.getElementById('layerSlider').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('layerValue').textContent = `${value}D`;
+            storage.holographicLayers = parseInt(value);
+            storage.updateUI();
+        });
+
+        document.getElementById('quantumSlider').addEventListener('input', (e) => {
+            const value = e.target.value;
+            document.getElementById('quantumValue').textContent = `${value}%`;
+            storage.quantumSync = parseFloat(value);
+            storage.updateUI();
+        });
+
+        // Initialize the storage system
+        const storage = new InfiniteStorage();
+
+    </script>
+</body>
+</html>

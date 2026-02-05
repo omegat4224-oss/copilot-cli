@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Linux Terminal Emulator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0c0c0c;
+      --bg-terminal: #1a1a2e;
+      --text-primary: #0f0;
+      --text-secondary: #0a0;
+      --text-dim: #050;
+      --kali-blue: #367bf0;
+      --kali-red: #ff3e3e;
+      --prompt-user: #5ef1f1;
+      --prompt-host: #ff79c6;
+      --prompt-path: #50fa7b;
+      --error: #ff5555;
+      --warning: #f1fa8c;
+      --info: #8be9fd;
+      --file: #f8f8f2;
+      --dir: #5eafff;
+      --exec: #50fa7b;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-dark);
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      overflow: hidden;
+    }
+    .container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    /* Title bar */
+    .title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 15px;
+      background: linear-gradient(180deg, #2d2d4a 0%, #1a1a2e 100%);
+      border-bottom: 1px solid #333;
+      user-select: none;
+    }
+    .window-controls {
+      display: flex;
+      gap: 8px;
+    }
+    .window-btn {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .window-btn:hover {
+      opacity: 0.8;
+    }
+    .btn-close { background: #ff5f57; }
+    .btn-minimize { background: #ffbd2e; }
+    .btn-maximize { background: #28c940; }
+    .title-text {
+      color: #888;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .title-text::before {
+      content: '🐉';
+    }
+    .tabs {
+      display: flex;
+      gap: 2px;
+    }
+    .tab {
+      padding: 4px 16px;
+      background: rgba(255,255,255,0.05);
+      color: #666;
+      font-size: 0.75rem;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+    }
+    .tab.active {
+      background: var(--bg-terminal);
+      color: #fff;
+    }
+    /* Terminal */
+    .terminal {
+      flex: 1;
+      background: var(--bg-terminal);
+      padding: 15px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      font-size: clamp(12px, 2.5vw, 14px);
+      line-height: 1.5;
+    }
+    .terminal::-webkit-scrollbar { width: 8px; }
+    .terminal::-webkit-scrollbar-track { background: #111; }
+    .terminal::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 4px;
+    }
+    .output-line {
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-bottom: 2px;
+    }
+    .output-line.error { color: var(--error); }
+    .output-line.warning { color: var(--warning); }
+    .output-line.info { color: var(--info); }
+    .output-line.success { color: var(--exec); }
+    /* ASCII Art */
+    .ascii-art {
+      color: var(--kali-blue);
+      font-size: 10px;
+      line-height: 1.2;
+      margin-bottom: 15px;
+    }
+    /* Prompt */
+    .prompt-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .prompt {
+      display: inline;
+    }
+    .prompt-user { color: var(--prompt-user); }
+    .prompt-at { color: #888; }
+    .prompt-host { color: var(--prompt-host); }
+    .prompt-separator { color: #888; }
+    .prompt-path { color: var(--prompt-path); }
+    .prompt-symbol {
+      color: var(--kali-blue);
+      font-weight: bold;
+    }
+    .input-wrapper {
+      flex: 1;
+      min-width: 100px;
+      display: flex;
+      align-items: center;
+    }
+    #command-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-family: inherit;
+      font-size: inherit;
+      caret-color: var(--text-primary);
+      padding: 0;
+      margin-left: 5px;
+    }
+    .cursor-blink {
+      display: inline-block;
+      width: 8px;
+      height: 16px;
+      background: var(--text-primary);
+      animation: blink 1s step-end infinite;
+      vertical-align: middle;
+      margin-left: 2px;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+    /* File listing */
+    .file-listing {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .file-item { min-width: 120px; }
+    .file-item.dir { color: var(--dir); }
+    .file-item.exec { color: var(--exec); }
+    .file-item.file { color: var(--file); }
+    .file-item.link { color: var(--info); }
+    /* Matrix rain effect */
+    .matrix-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.03;
+      z-index: 0;
+    }
+    .terminal-wrapper {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    /* Status bar */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 15px;
+      background: #252540;
+      font-size: 0.7rem;
+      color: #666;
+      border-top: 1px solid #333;
+    }
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--exec);
+    }
+    /* Help table */
+    .help-table {
+      border-collapse: collapse;
+      margin: 10px 0;
+    }
+    .help-table td { padding: 3px 20px 3px 0; }
+    .help-table .cmd { color: var(--info); }
+    .help-table .desc { color: #888; }
+    /* Neofetch style */
+    .neofetch {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    .neofetch-logo {
+      color: var(--kali-blue);
+      font-size: 10px;
+      line-height: 1.1;
+    }
+    .neofetch-info { line-height: 1.6; }
+    .neofetch-label { color: var(--kali-blue); }
+    .neofetch-value { color: #fff; }
+    /* Progress bar */
+    .progress-bar {
+      display: inline-block;
+      width: 200px;
+      height: 12px;
+      background: #333;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--kali-blue), var(--exec));
+      transition: width 0.3s;
+    }
+    /* Htop style */
+    .htop-header {
+      color: var(--info);
+      border-bottom: 1px solid #333;
+      padding-bottom: 5px;
+      margin-bottom: 5px;
+    }
+    .process-row {
+      display: flex;
+      gap: 10px;
+    }
+    .process-row span { min-width: 60px; }
+    @media (max-width: 500px) {
+      .terminal { padding: 10px; }
+      .neofetch { flex-direction: column; gap: 15px; }
+      .title-text span { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas class="matrix-canvas" id="matrix"></canvas>
+  <div class="container terminal-wrapper">
+    <div class="title-bar">
+      <div class="window-controls">
+        <button class="window-btn btn-close"></button>
+        <button class="window-btn btn-minimize"></button>
+        <button class="window-btn btn-maximize"></button>
+      </div>
+      <div class="title-text"><span>root@kali</span>: ~/</div>
+      <div class="tabs">
+        <div class="tab active">bash</div>
+      </div>
+    </div>
+    <div class="terminal" id="terminal">
+      <div class="ascii-art" id="ascii-banner"></div>
+      <div id="output"></div>
+      <div class="prompt-line">
+        <span class="prompt">
+          <span class="prompt-user">root</span><span class="prompt-at">@</span><span class="prompt-host">kali</span><span class="prompt-separator">:</span><span class="prompt-path">~</span><span class="prompt-symbol">$</span>
+        </span>
+        <div class="input-wrapper">
+          <input type="text" id="command-input" autofocus autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+      </div>
+    </div>
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="status-dot"></span>
+        <span>connected</span>
+      </div>
+      <div class="status-item">
+        <span id="datetime"></span>
+      </div>
+      <div class="status-item">
+        <span>bash 5.2.15</span>
+      </div>
+    </div>
+  </div>
+  <script>
+    // ============== MATRIX RAIN ==============
+    const matrixCanvas = document.getElementById('matrix');
+    const mctx = matrixCanvas.getContext('2d');
+    let matrixColumns, matrixDrops;
+
+    function initMatrix() {
+      matrixCanvas.width = window.innerWidth;
+      matrixCanvas.height = window.innerHeight;
+      matrixColumns = Math.floor(matrixCanvas.width / 20);
+      matrixDrops = Array(matrixColumns).fill(1);
+    }
+
+    function drawMatrix() {
+      mctx.fillStyle = 'rgba(26, 26, 46, 0.05)';
+      mctx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+      mctx.fillStyle = '#0f0';
+      mctx.font = '15px monospace';
+      for (let i = 0; i < matrixDrops.length; i++) {
+        const char = String.fromCharCode(0x30A0 + Math.random() * 96);
+        mctx.fillText(char, i * 20, matrixDrops[i] * 20);
+        if (matrixDrops[i] * 20 > matrixCanvas.height && Math.random() > 0.975) {
+          matrixDrops[i] = 0;
+        }
+        matrixDrops[i]++;
+      }
+    }
+
+    initMatrix();
+    window.addEventListener('resize', initMatrix);
+    setInterval(drawMatrix, 50);
+
+    // ============== FILE SYSTEM ==============
+    const fileSystem = {
+      '/': {
+        type: 'dir',
+        contents: {
+          'home': {
+            type: 'dir',
+            contents: {
+              'kali': {
+                type: 'dir',
+                contents: {
+                  'Desktop': { type: 'dir', contents: {} },
+                  'Documents': {
+                    type: 'dir',
+                    contents: {
+                      'notes.txt': {
+                        type: 'file',
+                        content: 'Remember to update the system!\nTODO: Write more terminal UI demos'
+                      },
+                      'projects.txt': {
+                        type: 'file',
+                        content: 'demo-dashboard\ncli-playground\nterminal-ui'
+                      }
+                    }
+                  },
+                  'Downloads': {
+                    type: 'dir',
+                    contents: {
+                      'setup.py': {
+                        type: 'exec',
+                        content: '#!/usr/bin/env python3\nprint("Setup complete")'
+                      },
+                      'cleanup.sh': {
+                        type: 'exec',
+                        content: '#!/bin/bash\necho "Cleanup complete"'
+                      }
+                    }
+                  },
+                  '.bashrc': {
+                    type: 'file',
+                    content: '# ~/.bashrc\nexport PATH=$PATH:/usr/local/bin\nalias ll="ls -la"'
+                  },
+                  '.bash_history': {
+                    type: 'file',
+                    content: 'ls -la\ncat ~/Documents/notes.txt\npython3 ~/Downloads/setup.py'
+                  }
+                }
+              }
+            }
+          },
+          'etc': {
+            type: 'dir',
+            contents: {
+              'passwd': {
+                type: 'file',
+                content: 'root:x:0:0:root:/root:/bin/bash\nkali:x:1000:1000:Kali,,,:/home/kali:/bin/bash'
+              },
+              'hosts': {
+                type: 'file',
+                content: '127.0.0.1 localhost\n::1 localhost\n127.0.1.1 kali'
+              },
+              'shadow': {
+                type: 'file',
+                content: '[Permission Denied]'
+              }
+            }
+          },
+          'var': {
+            type: 'dir',
+            contents: {
+              'log': {
+                type: 'dir',
+                contents: {
+                  'syslog': {
+                    type: 'file',
+                    content: 'Jan 21 12:00:00 kali systemd[1]: Started Session\nJan 21 12:00:01 kali kernel: [ 0.000000] Linux version 6.1.0-kali'
+                  }
+                }
+              }
+            }
+          },
+          'usr': {
+            type: 'dir',
+            contents: {
+              'bin': {
+                type: 'dir',
+                contents: {
+                  'python3': { type: 'exec', content: '' },
+                  'git': { type: 'exec', content: '' },
+                  'curl': { type: 'exec', content: '' }
+                }
+              },
+              'share': {
+                type: 'dir',
+                contents: {
+                  'docs': {
+                    type: 'dir',
+                    contents: {
+                      'readme.txt': { type: 'file', content: 'Sample documentation placeholder.' }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          'root': {
+            type: 'dir',
+            contents: {
+              'tools': {
+                type: 'dir',
+                contents: {
+                  'reporter.py': {
+                    type: 'exec',
+                    content: '#!/usr/bin/env python3\nprint("System report ready")'
+                  }
+                }
+              },
+              'notes.txt': {
+                type: 'file',
+                content: 'Root notes placeholder for system administration.'
+              }
+            }
+          },
+          'tmp': { type: 'dir', contents: {} },
+          'bin': {
+            type: 'dir',
+            contents: {
+              'bash': { type: 'exec', content: '' },
+              'ls': { type: 'exec', content: '' },
+              'cat': { type: 'exec', content: '' }
+            }
+          }
+        }
+      }
+    };
+
+    let currentPath = '/home/kali';
+    let commandHistory = [];
+    let historyIndex = -1;
+    let env = {
+      USER: 'root',
+      HOME: '/home/kali',
+      PWD: '/home/kali',
+      SHELL: '/bin/bash',
+      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      TERM: 'xterm-256color'
+    };
+
+    // ============== TERMINAL FUNCTIONS ==============
+    const terminal = document.getElementById('terminal');
+    const output = document.getElementById('output');
+    const input = document.getElementById('command-input');
+    const titlePath = document.querySelector('.title-text');
+
+    function getDir(path) {
+      const parts = path.split('/').filter(p => p);
+      let current = fileSystem['/'];
+      for (const part of parts) {
+        if (current.contents && current.contents[part]) {
+          current = current.contents[part];
+        } else {
+          return null;
+        }
+      }
+      return current;
+    }
+
+    function resolvePath(path) {
+      if (!path) return currentPath;
+      if (path === '~') return env.HOME;
+      if (path.startsWith('~/')) return env.HOME + path.slice(1);
+      if (path.startsWith('/')) return path;
+      let parts = currentPath.split('/').filter(p => p);
+      const newParts = path.split('/');
+      for (const part of newParts) {
+        if (part === '..') {
+          parts.pop();
+        } else if (part !== '.' && part !== '') {
+          parts.push(part);
+        }
+      }
+      return '/' + parts.join('/');
+    }
+
+    function getPromptPath() {
+      if (currentPath === env.HOME) return '~';
+      if (currentPath.startsWith(env.HOME)) return '~' + currentPath.slice(env.HOME.length);
+      return currentPath;
+    }
+
+    function updatePrompt() {
+      const promptPath = document.querySelector('.prompt-path');
+      promptPath.textContent = getPromptPath();
+      titlePath.innerHTML = `<span>${env.USER}@kali</span>: ${getPromptPath()}`;
+      env.PWD = currentPath;
+    }
+
+    function printOutput(text, className = '') {
+      const line = document.createElement('div');
+      line.className = 'output-line ' + className;
+      line.innerHTML = text;
+      output.appendChild(line);
+    }
+
+    function printHTML(html) {
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      output.appendChild(div);
+    }
+
+    function scrollToBottom() {
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    // ============== COMMANDS ==============
+    const commands = {
+      help: () => {
+        printHTML(`
+          <table class="help-table">
+            <tr><td class="cmd">help</td><td class="desc">Show this help message</td></tr>
+            <tr><td class="cmd">ls [path]</td><td class="desc">List directory contents</td></tr>
+            <tr><td class="cmd">cd [path]</td><td class="desc">Change directory</td></tr>
+            <tr><td class="cmd">pwd</td><td class="desc">Print working directory</td></tr>
+            <tr><td class="cmd">cat [file]</td><td class="desc">Display file contents</td></tr>
+            <tr><td class="cmd">echo [text]</td><td class="desc">Display text</td></tr>
+            <tr><td class="cmd">clear</td><td class="desc">Clear terminal</td></tr>
+            <tr><td class="cmd">whoami</td><td class="desc">Display current user</td></tr>
+            <tr><td class="cmd">hostname</td><td class="desc">Display hostname</td></tr>
+            <tr><td class="cmd">uname [-a]</td><td class="desc">System information</td></tr>
+            <tr><td class="cmd">date</td><td class="desc">Display date/time</td></tr>
+            <tr><td class="cmd">neofetch</td><td class="desc">System info with logo</td></tr>
+            <tr><td class="cmd">htop</td><td class="desc">Process viewer</td></tr>
+            <tr><td class="cmd">ping [host]</td><td class="desc">Ping simulation</td></tr>
+            <tr><td class="cmd">ifconfig</td><td class="desc">Network interfaces</td></tr>
+            <tr><td class="cmd">ps</td><td class="desc">Process list</td></tr>
+            <tr><td class="cmd">history</td><td class="desc">Command history</td></tr>
+            <tr><td class="cmd">export</td><td class="desc">Environment variables</td></tr>
+            <tr><td class="cmd">mkdir [name]</td><td class="desc">Create directory</td></tr>
+            <tr><td class="cmd">touch [file]</td><td class="desc">Create file</td></tr>
+            <tr><td class="cmd">rm [file]</td><td class="desc">Remove file</td></tr>
+            <tr><td class="cmd">tree</td><td class="desc">Directory tree</td></tr>
+            <tr><td class="cmd">sudo [cmd]</td><td class="desc">Run as superuser</td></tr>
+            <tr><td class="cmd">exit</td><td class="desc">Exit terminal</td></tr>
+          </table>
+        `);
+      },
+      ls: (args) => {
+        const flags = args.filter(a => a.startsWith('-')).join('');
+        const path = args.find(a => !a.startsWith('-')) || '.';
+        const targetPath = resolvePath(path);
+        const dir = getDir(targetPath);
+        if (!dir || dir.type !== 'dir') {
+          printOutput(`ls: cannot access '${path}': No such file or directory`, 'error');
+          return;
+        }
+        const entries = Object.entries(dir.contents);
+        if (entries.length === 0) {
+          return;
+        }
+        const showHidden = flags.includes('a');
+        const longFormat = flags.includes('l');
+        let items = entries.filter(([name]) => showHidden || !name.startsWith('.'));
+        if (longFormat) {
+          printOutput('total ' + items.length);
+          items.forEach(([name, item]) => {
+            const isDir = item.type === 'dir';
+            const isExec = item.type === 'exec';
+            const perms = isDir ? 'drwxr-xr-x' : (isExec ? '-rwxr-xr-x' : '-rw-r--r--');
+            const size = item.content ? item.content.length : 4096;
+            const color = isDir ? 'dir' : (isExec ? 'exec' : 'file');
+            printOutput(`${perms} 1 root root ${String(size).padStart(5)} Jan 21 12:00 <span class="file-item ${color}">${name}${isDir ? '/' : ''}</span>`);
+          });
+        } else {
+          let html = '<div class="file-listing">';
+          items.forEach(([name, item]) => {
+            const isDir = item.type === 'dir';
+            const isExec = item.type === 'exec';
+            const color = isDir ? 'dir' : (isExec ? 'exec' : 'file');
+            html += `<span class="file-item ${color}">${name}${isDir ? '/' : ''}</span>`;
+          });
+          html += '</div>';
+          printHTML(html);
+        }
+      },
+      cd: (args) => {
+        const path = args[0] || '~';
+        const newPath = resolvePath(path);
+        const dir = getDir(newPath);
+        if (!dir) {
+          printOutput(`cd: ${path}: No such file or directory`, 'error');
+        } else if (dir.type !== 'dir') {
+          printOutput(`cd: ${path}: Not a directory`, 'error');
+        } else {
+          currentPath = newPath === '' ? '/' : newPath;
+          updatePrompt();
+        }
+      },
+      pwd: () => { printOutput(currentPath); },
+      cat: (args) => {
+        if (!args[0]) {
+          printOutput('cat: missing operand', 'error');
+          return;
+        }
+        const path = resolvePath(args[0]);
+        const file = getDir(path);
+        if (!file) {
+          printOutput(`cat: ${args[0]}: No such file or directory`, 'error');
+        } else if (file.type === 'dir') {
+          printOutput(`cat: ${args[0]}: Is a directory`, 'error');
+        } else {
+          printOutput(file.content || '');
+        }
+      },
+      echo: (args) => { printOutput(args.join(' ')); },
+      clear: () => { output.innerHTML = ''; },
+      whoami: () => { printOutput(env.USER); },
+      hostname: () => { printOutput('kali'); },
+      uname: (args) => {
+        if (args.includes('-a')) {
+          printOutput('Linux kali 6.1.0-kali9-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.27-1kali1 x86_64 GNU/Linux');
+        } else {
+          printOutput('Linux');
+        }
+      },
+      date: () => { printOutput(new Date().toString()); },
+      neofetch: () => {
+        const logo = `
+          <span style="color:#367bf0"> ,..... </span>
+          <span style="color:#367bf0"> .';:cccccccc:,. </span>
+          <span style="color:#367bf0"> .;cccccccccccccccc:. </span>
+          <span style="color:#367bf0"> .:cccccccccccccccccccc:. </span>
+          <span style="color:#367bf0">.ccccccc;</span><span style="color:#fff">'''</span><span style="color:#367bf0">:ccccc:</span><span style="color:#fff">'''</span><span style="color:#367bf0">;cc:. </span>
+          <span style="color:#367bf0">:cccccc; :cccc: .cc: </span>
+          <span style="color:#367bf0">:cccccc; :cccc; cc; </span>
+          <span style="color:#367bf0"> 'ccccc: ;cccc; :c; </span>
+          <span style="color:#367bf0"> .cccc: ;cccc:.....c; </span>
+          <span style="color:#367bf0"> .cc:. :cccccccc; </span>
+          <span style="color:#367bf0"> .:;. ;ccccc;. </span>
+          <span style="color:#367bf0"> . .cc; </span>
+        `;
+        const info = `
+          <span class="neofetch-label">root</span>@<span class="neofetch-label">kali</span> ──────────────────
+          <span class="neofetch-label">OS:</span> <span class="neofetch-value">Kali GNU/Linux Rolling x86_64</span>
+          <span class="neofetch-label">Host:</span> <span class="neofetch-value">Virtual Machine</span>
+          <span class="neofetch-label">Kernel:</span> <span class="neofetch-value">6.1.0-kali9-amd64</span>
+          <span class="neofetch-label">Uptime:</span> <span class="neofetch-value">${Math.floor(Math.random() * 24)} hours, ${Math.floor(Math.random() * 60)} mins</span>
+          <span class="neofetch-label">Packages:</span> <span class="neofetch-value">3847 (dpkg)</span>
+          <span class="neofetch-label">Shell:</span> <span class="neofetch-value">bash 5.2.15</span>
+          <span class="neofetch-label">Terminal:</span> <span class="neofetch-value">xterm-256color</span>
+          <span class="neofetch-label">CPU:</span> <span class="neofetch-value">AMD Ryzen 9 5900X (12) @ 4.8GHz</span>
+          <span class="neofetch-label">Memory:</span> <span class="neofetch-value">${Math.floor(Math.random() * 4000 + 2000)}MiB / 16384MiB</span>
+          <span style="background:#ff5555;color:#ff5555">███</span><span style="background:#50fa7b;color:#50fa7b">███</span><span style="background:#f1fa8c;color:#f1fa8c">███</span><span style="background:#367bf0;color:#367bf0">███</span><span style="background:#ff79c6;color:#ff79c6">███</span><span style="background:#8be9fd;color:#8be9fd">███</span><span style="background:#fff;color:#fff">███</span>
+        `;
+        printHTML(`<div class="neofetch"><pre class="neofetch-logo">${logo}</pre><pre class="neofetch-info">${info}</pre></div>`);
+      },
+      htop: () => {
+        const processes = [
+          { pid: 1, user: 'root', cpu: '0.0', mem: '0.1', cmd: '/sbin/init' },
+          { pid: 256, user: 'root', cpu: '0.2', mem: '1.2', cmd: '/usr/lib/systemd/systemd' },
+          { pid: 512, user: 'root', cpu: '0.0', mem: '0.5', cmd: '/usr/sbin/sshd' },
+          { pid: 1024, user: 'kali', cpu: '2.1', mem: '3.4', cmd: '/usr/bin/bash' },
+          { pid: 1337, user: 'root', cpu: '15.2', mem: '8.7', cmd: '/usr/bin/python3 reporter.py' },
+          { pid: 2048, user: 'root', cpu: '5.4', mem: '12.1', cmd: 'node server.js' }
+        ];
+        let html = `<pre style="color:#0f0;">
+CPU [<span class="progress-bar"><span class="progress-fill" style="width:${Math.random() * 60 + 10}%"></span></span>] ${(Math.random() * 30 + 5).toFixed(1)}%
+Mem [<span class="progress-bar"><span class="progress-fill" style="width:${Math.random() * 50 + 20}%"></span></span>] ${Math.floor(Math.random() * 4000 + 2000)}M/16G
+<span class="htop-header"> PID USER CPU% MEM% COMMAND</span>
+`;
+        processes.forEach(p => {
+          html += `<span class="process-row"><span style="color:#5ef1f1">${String(p.pid).padStart(5)}</span> <span>${p.user.padEnd(8)}</span> <span style="color:#50fa7b">${p.cpu.padStart(5)}</span> <span style="color:#f1fa8c">${p.mem.padStart(5)}</span> <span style="color:#fff">${p.cmd}</span></span>\n`;
+        });
+        html += '</pre>';
+        printHTML(html);
+      },
+      ping: async (args) => {
+        const host = args[0] || 'localhost';
+        printOutput(`PING ${host} (${host === 'localhost' ? '127.0.0.1' : '192.168.1.' + Math.floor(Math.random() * 254 + 1)}) 56(84) bytes of data.`);
+        for (let i = 1; i <= 4; i++) {
+          await sleep(1000);
+          const time = (Math.random() * 50 + 1).toFixed(3);
+          printOutput(`64 bytes from ${host}: icmp_seq=${i} ttl=64 time=${time} ms`, 'success');
+        }
+        printOutput('');
+        printOutput(`--- ${host} ping statistics ---`);
+        printOutput('4 packets transmitted, 4 received, 0% packet loss');
+      },
+      ifconfig: () => {
+        printHTML(`<pre>
+<span style="color:#5ef1f1">eth0:</span> flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt; mtu 1500 inet <span style="color:#50fa7b">192.168.1.${Math.floor(Math.random() * 254 + 1)}</span> netmask 255.255.255.0 broadcast 192.168.1.255
+inet6 fe80::a00:27ff:fe8e:8aa8 prefixlen 64 scopeid 0x20 ether 08:00:27:8e:8a:a8 txqueuelen 1000 (Ethernet)
+RX packets 12847 bytes 13892847 (13.2 MiB) TX packets 8742 bytes 982847 (959.8 KiB)
+<span style="color:#5ef1f1">lo:</span> flags=73&lt;UP,LOOPBACK,RUNNING&gt; mtu 65536 inet <span style="color:#50fa7b">127.0.0.1</span> netmask 255.0.0.0
+inet6 ::1 prefixlen 128 scopeid 0x10 loop txqueuelen 1000 (Local Loopback)
+</pre>`);
+      },
+      ps: () => {
+        printOutput(' PID TTY TIME CMD');
+        printOutput(' 1024 pts/0 00:00:00 bash');
+        printOutput(' 1337 pts/0 00:00:01 python3');
+        printOutput(` ${Math.floor(Math.random() * 9000 + 1000)} pts/0 00:00:00 ps`);
+      },
+      history: () => {
+        commandHistory.forEach((cmd, i) => {
+          printOutput(` ${i + 1} ${cmd}`);
+        });
+      },
+      export: () => {
+        Object.entries(env).forEach(([key, val]) => {
+          printOutput(`${key}=${val}`);
+        });
+      },
+      mkdir: (args) => {
+        if (!args[0]) {
+          printOutput('mkdir: missing operand', 'error');
+          return;
+        }
+        const dir = getDir(currentPath);
+        if (dir && dir.contents) {
+          dir.contents[args[0]] = { type: 'dir', contents: {} };
+          printOutput(`Directory '${args[0]}' created`, 'success');
+        }
+      },
+      touch: (args) => {
+        if (!args[0]) {
+          printOutput('touch: missing operand', 'error');
+          return;
+        }
+        const dir = getDir(currentPath);
+        if (dir && dir.contents) {
+          dir.contents[args[0]] = { type: 'file', content: '' };
+        }
+      },
+      rm: (args) => {
+        if (!args[0]) {
+          printOutput('rm: missing operand', 'error');
+          return;
+        }
+        const dir = getDir(currentPath);
+        if (dir && dir.contents && dir.contents[args[0]]) {
+          delete dir.contents[args[0]];
+          printOutput(`Removed '${args[0]}'`, 'success');
+        } else {
+          printOutput(`rm: cannot remove '${args[0]}': No such file`, 'error');
+        }
+      },
+      tree: (args) => {
+        const path = args[0] ? resolvePath(args[0]) : currentPath;
+        const dir = getDir(path);
+        if (!dir || dir.type !== 'dir') {
+          printOutput(`tree: '${path}' is not a directory`, 'error');
+          return;
+        }
+        function printTree(node, prefix = '') {
+          const entries = Object.entries(node.contents || {});
+          entries.forEach(([name, item], i) => {
+            const isLast = i === entries.length - 1;
+            const connector = isLast ? '└── ' : '├── ';
+            const color = item.type === 'dir' ? 'dir' : (item.type === 'exec' ? 'exec' : 'file');
+            printOutput(`${prefix}${connector}<span class="file-item ${color}">${name}</span>`);
+            if (item.type === 'dir') {
+              printTree(item, prefix + (isLast ? ' ' : '│ '));
+            }
+          });
+        }
+        printOutput(`<span class="file-item dir">${path === '/' ? '/' : path.split('/').pop()}</span>`);
+        printTree(dir);
+      },
+      sudo: (args) => {
+        if (args.length === 0) {
+          printOutput('usage: sudo command', 'error');
+          return;
+        }
+        printOutput(`[sudo] password for ${env.USER}: `, 'warning');
+        setTimeout(() => {
+          executeCommand(args.join(' '));
+        }, 500);
+      },
+      exit: () => {
+        printOutput('logout', 'info');
+        printOutput('Connection to kali closed.', 'info');
+        setTimeout(() => {
+          output.innerHTML = '';
+          showBanner();
+        }, 1000);
+      },
+      id: () => { printOutput('uid=0(root) gid=0(root) groups=0(root)'); },
+      uptime: () => {
+        const hours = Math.floor(Math.random() * 24);
+        const mins = Math.floor(Math.random() * 60);
+        printOutput(` ${new Date().toTimeString().split(' ')[0]} up ${hours}:${String(mins).padStart(2, '0')}, 1 user, load average: 0.52, 0.58, 0.59`);
+      },
+      df: () => {
+        printOutput('Filesystem Size Used Avail Use% Mounted on');
+        printOutput('/dev/sda1 100G 42G 58G 42% /');
+        printOutput('tmpfs 7.8G 0 7.8G 0% /dev/shm');
+      },
+      free: () => {
+        printOutput(' total used free shared buff/cache available');
+        printOutput('Mem: 16384000 4823000 8234000 234000 3327000 11024000');
+        printOutput('Swap: 2048000 0 2048000');
+      }
+    };
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function executeCommand(cmdLine) {
+      const parts = cmdLine.trim().split(/\s+/);
+      const cmd = parts[0];
+      const args = parts.slice(1);
+      if (!cmd) return;
+      if (commands[cmd]) {
+        await commands[cmd](args);
+      } else if (cmd) {
+        printOutput(`${cmd}: command not found`, 'error');
+      }
+      scrollToBottom();
+    }
+
+    function showBanner() {
+      const banner = `
+        <span style="color:#367bf0">
+        ██╗ ██╗ █████╗ ██╗ ██╗ ██╗ ██╗███╗ ██╗██╗ ██╗██╗ ██╗
+        ██║ ██╔╝██╔══██╗██║ ██║ ██║ ██║████╗ ██║██║ ██║╚██╗██╔╝
+        █████╔╝ ███████║██║ ██║ ██║ ██║██╔██╗ ██║██║ ██║ ╚███╔╝
+        ██╔═██╗ ██╔══██║██║ ██║ ██║ ██║██║╚██╗██║██║ ██║ ██╔██╗
+        ██╗██║ ██║███████╗██║ ███████╗██║██║ ╚████║╚██████╔╝██╔╝
+        ██╗ ╚═╝ ╚═╝╚═╝ ╚═╝╚══════╝╚═╝ ╚══════╝╚═╝╚═╝ ╚═══╝ ╚═════╝
+        </span>
+        <span style="color:#888">The quieter you become, the more you are able to hear.</span>
+        <span style="color:#50fa7b">Type 'help' for available commands.</span>
+      `;
+      document.getElementById('ascii-banner').innerHTML = banner;
+    }
+
+    // ============== INPUT HANDLING ==============
+    input.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        const cmdLine = input.value;
+        const promptHTML = `<span class="prompt"><span class="prompt-user">${env.USER}</span><span class="prompt-at">@</span><span class="prompt-host">kali</span><span class="prompt-separator">:</span><span class="prompt-path">${getPromptPath()}</span><span class="prompt-symbol">$</span></span> ${cmdLine}`;
+        printOutput(promptHTML);
+        if (cmdLine.trim()) {
+          commandHistory.push(cmdLine);
+          historyIndex = commandHistory.length;
+        }
+        input.value = '';
+        await executeCommand(cmdLine);
+        scrollToBottom();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (historyIndex > 0) {
+          historyIndex--;
+          input.value = commandHistory[historyIndex];
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyIndex < commandHistory.length - 1) {
+          historyIndex++;
+          input.value = commandHistory[historyIndex];
+        } else {
+          historyIndex = commandHistory.length;
+          input.value = '';
+        }
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        const parts = input.value.split(' ');
+        const lastPart = parts[parts.length - 1];
+        const dir = getDir(currentPath);
+        if (dir && dir.contents) {
+          const matches = Object.keys(dir.contents).filter(name => name.startsWith(lastPart));
+          if (matches.length === 1) {
+            parts[parts.length - 1] = matches[0];
+            input.value = parts.join(' ');
+          }
+        }
+      } else if (e.key === 'l' && e.ctrlKey) {
+        e.preventDefault();
+        commands.clear();
+      }
+    });
+
+    terminal.addEventListener('click', () => input.focus());
+
+    // Update datetime
+    function updateDateTime() {
+      const now = new Date();
+      document.getElementById('datetime').textContent = now.toLocaleString();
+    }
+
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+
+    // Init
+    showBanner();
+    updatePrompt();
+    input.focus();
+  </script>
+</body>
+</html>
